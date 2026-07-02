@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i2i Telecom OCS - Test Console</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">📱</span>
+            <h1 class="text-xl font-bold tracking-wider text-indigo-400">i2i Telecom OCS Console</h1>
+        </div>
+        <span class="bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-500/20 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Multi-VM Kafka Active
+        </span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left/Center: Form & Result Area -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <h2 class="text-lg font-bold mb-4 text-slate-300 flex items-center gap-2">⚡ Execute Call Authorization Request</h2>
+                
+                <form id="apiForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Subscriber (MSISDN)</label>
+                            <input type="text" id="msisdn" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 transition" placeholder="e.g. 5551112233">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Destination Number</label>
+                            <input type="text" id="destination" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 transition" placeholder="e.g. 5559876543">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Duration (Seconds/Minutes)</label>
+                            <input type="number" id="duration" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 transition" placeholder="e.g. 60">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 tracking-wider uppercase mb-2">Call Type</label>
+                            <select id="isInternational" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 transition">
+                                <option value="false">Domestic Call (Yurt İçi)</option>
+                                <option value="true">International Call (Yurt Dışı)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="sendAuthorization()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-500/20 transition duration-200 transform active:scale-[0.99]">
+                        Send Auth Request to Gateway (VM-1)
+                    </button>
+                </form>
+            </div>
+
+            <!-- Terminal Output Box -->
+            <div class="bg-slate-950 border border-slate-900 rounded-2xl p-6 flex-1 flex flex-col shadow-inner">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Gateway Server Responses (JSON)</span>
+                    <span id="statusCode" class="text-xs font-mono font-bold text-slate-400">IDLE</span>
+                </div>
+                <pre id="jsonOutput" class="font-mono text-sm text-emerald-400 bg-slate-900/50 p-4 rounded-xl overflow-x-auto border border-slate-900 flex-1 min-h-[150px]">Waiting for triggers...</pre>
+            </div>
+        </div>
+
+        <!-- Right Side: 10 Preset Scenario Cards -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col h-[calc(100vh-140px)] overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4 text-slate-300 flex items-center gap-2">🎯 Test Scenarios (Click to Load)</h2>
+            <div class="space-y-3 pr-1" id="scenariosContainer"></div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/60 bg-slate-950/40 text-center py-3 text-xs text-slate-500">
+        i2i Systems Telecom OCS Simulation Module - Framework Powered by Managed Apache Kafka
+    </footer>
+
+    <script>
+        const scenarios = [
+            { id: 1, title: "Standard Domestic Call", msisdn: "5551112233", dest: "5559876543", dur: 2, inter: "false", badge: "SUCCESS", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", desc: "Kayıtlı abone, yeterli bakiye. Sistem başarıyla Kafka'ya akış sağlar." },
+            { id: 2, title: "Critical Balance Warning", msisdn: "5551112233", dest: "5556667788", dur: 12, inter: "false", badge: "SMS ALERT", color: "bg-amber-500/10 text-amber-400 border-amber-500/20", desc: "Arama bittiğinde bakiye 5'in altına düşer. VM-2 anında Telegram SMS'i ateşler." },
+            { id: 3, title: "Zero Balance Rejection", msisdn: "5557778899", dest: "5551112233", dur: 10, inter: "false", badge: "BLOCKED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Bakiyesi sıfır olan abone. VM-1 aramayı reddeder, VM-2 yetersiz bakiye SMS'i atar." },
+            { id: 4, title: "International Call Allowed", msisdn: "5551112233", dest: "4471234567", dur: 1, inter: "true", badge: "SUCCESS", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", desc: "Yurt dışı izni açık olan numara. Arama onaylanır ve veri hatta gönderilir." },
+            { id: 5, title: "International Call Barred", msisdn: "5554445566", dest: "12125550199", dur: 5, inter: "true", badge: "BARRED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Yurt dışı yetkisi kapalı numara. VM-1 engeller, VM-2 kısıtlama SMS'ini yollar." },
+            { id: 6, title: "Subscriber Not Found", msisdn: "5559999999", dest: "5551112233", dur: 5, inter: "false", badge: "NOT FOUND", color: "bg-slate-500/10 text-slate-400 border-slate-500/20", desc: "Veritabanında kaydı olmayan numara. Sistem aboneyi bulamaz ve reddeder." },
+            { id: 7, title: "Package Depletion Trigger", msisdn: "5554445566", dest: "5551112233", dur: 5, inter: "false", badge: "SMS ALERT", color: "bg-amber-500/10 text-amber-400 border-amber-500/20", desc: "Tam sınırda bakiye kullanımı. Paketin tamamen bittiğine dair SMS simülasyonu tetiklenir." },
+            { id: 8, title: "High-Duration Rejection", msisdn: "5554445566", dest: "5557778899", dur: 100, inter: "false", badge: "BLOCKED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Mevcut bakiyesini fazlasıyla aşan süre talebi. Sistem koruma modu devreye girer." },
+            { id: 9, title: "Invalid Target Call", msisdn: "5551112233", dest: "", dur: 5, inter: "false", badge: "BAD REQ", color: "bg-slate-500/10 text-slate-400 border-slate-500/20", desc: "Hedef numara boş gönderildiğinde API Gateway katmanının doğrulama testi." },
+            { id: 10, title: "Post-Depletion Zero Test", msisdn: "5557778899", dest: "5554445566", dur: 1, inter: "true", badge: "BLOCKED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Bakiyesi zaten 0 olan abonenin yurt dışı denemesi. Doğrudan bakiye engeline takılır." }
+        ];
+
+        const container = document.getElementById("scenariosContainer");
+        scenarios.forEach(sc => {
+            const card = document.createElement("div");
+            card.className = "p-4 bg-slate-950/60 border border-slate-800/80 rounded-xl hover:border-indigo-500/50 cursor-pointer transition flex flex-col gap-2";
+            card.onclick = () => loadScenario(sc);
+            card.innerHTML = `
+                <div class="flex justify-between items-start gap-2">
+                    <span class="text-sm font-bold text-slate-200">${sc.id}. ${sc.title}</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${sc.color}">${sc.badge}</span>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed">${sc.desc}</p>
+            `;
+            container.appendChild(card);
+        });
+
+        function loadScenario(sc) {
+            document.getElementById("msisdn").value = sc.msisdn;
+            document.getElementById("destination").value = sc.dest;
+            document.getElementById("duration").value = sc.dur;
+            document.getElementById("isInternational").value = sc.inter;
+            
+            const jsonOutput = document.getElementById("jsonOutput");
+            jsonOutput.innerText = `Scenario [${sc.title}] loaded into form fields. Ready to fire!`;
+            document.getElementById("statusCode").className = "text-xs font-mono font-bold text-indigo-400";
+            document.getElementById("statusCode").innerText = "LOADED";
+        }
+
+        async function sendAuthorization() {
+            const msisdn = document.getElementById("msisdn").value;
+            const destination = document.getElementById("destination").value;
+            const duration = document.getElementById("duration").value;
+            const isInternational = document.getElementById("isInternational").value;
+
+            const jsonOutput = document.getElementById("jsonOutput");
+            const statusBadge = document.getElementById("statusCode");
+            
+            jsonOutput.innerText = "Streaming event to Kafka via local gateway...";
+            
+            const formData = new URLSearchParams();
+            formData.append("msisdn", msisdn);
+            formData.append("destination", destination);
+            formData.append("duration", duration);
+            if (isInternational === "true") {
+                formData.append("isInternational", "true");
+            }
+
+            try {
+                const response = await fetch('/authorize-call', {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                const data = await response.json();
+                jsonOutput.innerText = JSON.stringify(data, null, 4);
+                
+                if (data.status === "SUCCESS") {
+                    statusBadge.className = "text-xs font-mono font-bold text-emerald-400";
+                    statusBadge.innerText = `HTTP ${response.status} - AUTHORIZED`;
+                } else {
+                    statusBadge.className = "text-xs font-mono font-bold text-rose-400";
+                    statusBadge.innerText = `HTTP ${response.status} - REJECTED`;
+                }
+            } catch (error) {
+                jsonOutput.innerText = `Connection Error: Make sure Service 1 is running locally.\n\nDetails: ${error.message}`;
+                statusBadge.className = "text-xs font-mono font-bold text-rose-500";
+                statusBadge.innerText = "FAILED";
+            }
+        }
+    </script>
+</body>
+</html>

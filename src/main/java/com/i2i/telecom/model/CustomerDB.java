@@ -1,20 +1,28 @@
 package com.i2i.telecom.model;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CustomerDB {
-    public static final Map<String, Integer> balances = new HashMap<>();
-    public static final Map<String, Boolean> internationalAllowed = new HashMap<>();
+    public static class Customer {
+        public String msisdn;
+        public int initialMinutes;
+        public int remainingMinutes;
+        public boolean isInternationalAllowed;
+
+        public Customer(String msisdn, int minutes, boolean isInternationalAllowed) {
+            this.msisdn = msisdn;
+            this.initialMinutes = minutes;
+            this.remainingMinutes = minutes;
+            this.isInternationalAllowed = isInternationalAllowed;
+        }
+    }
+
+    public static ConcurrentHashMap<String, Customer> db = new ConcurrentHashMap<>();
 
     static {
-        balances.put("5551112233", 15);
-        internationalAllowed.put("5551112233", true);
-
-        balances.put("5554445566", 5);
-        internationalAllowed.put("5554445566", false);
-
-        balances.put("5557778899", 0);
-        internationalAllowed.put("5557778899", true);
+        // Test senaryolarındaki aboneleri kalıcı olarak RAM'e yazıyoruz
+        db.put("5551112233", new Customer("5551112233", 15, true));  // Standard / Critical
+        db.put("5554445566", new Customer("5554445566", 20, false)); // International Barred
+        db.put("5557778899", new Customer("5557778899", 0, false));  // Zero Balance
     }
 }
