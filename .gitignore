@@ -1,0 +1,21 @@
+# Maven & IDEs
+target/
+*.log
+*.iml
+.idea/
+.classpath
+.project
+.settings/
+dependency-reduced-pom.xml
+
+# Linux OS & User Configs (Kritik Güvenlik)
+.bash_history
+.bash_logout
+.bashrc
+.cache/
+.config/
+.gitconfig
+.m2/
+.profile
+.ssh/
+snap/
