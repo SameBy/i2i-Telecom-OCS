@@ -23,21 +23,21 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Subscriber (MSISDN)</label>
-                            <input type="text" id="msisdn" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. 5551112233">
+                            <input type="text" id="msisdn" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none" placeholder="e.g. 5551110001">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Destination Number</label>
-                            <input type="text" id="destination" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. 5559876543">
+                            <input type="text" id="destination" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none" placeholder="e.g. 5559876543">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Duration (Minutes)</label>
-                            <input type="number" id="duration" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. 5">
+                            <input type="number" id="duration" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none" placeholder="e.g. 5">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Call Type</label>
-                            <select id="isInternational" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <select id="isInternational" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none">
                                 <option value="false">Domestic Call (Yurt İçi)</option>
                                 <option value="true">International Call (Yurt Dışı)</option>
                             </select>
@@ -73,12 +73,16 @@
 
     <script>
         const scenarios = [
-            { id: 1, title: "Standard Domestic Call", msisdn: "5551112233", dest: "5559876543", dur: 2, inter: "false", badge: "SUCCESS", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", desc: "Kayıtlı abone, yeterli bakiye. Sistem başarıyla Kafka'ya akış sağlar." },
-            { id: 2, title: "Partial Allowance Demo", msisdn: "5551112233", dest: "5556667788", dur: 20, inter: "false", badge: "PARTIAL ALLOW", color: "bg-amber-500/10 text-amber-400 border-amber-500/20", desc: "15 dk sınırı aşan 20 dk talep et. Kalan bakiye kadar izin verip sıfırlayacak." },
-            { id: 3, title: "Zero Balance Rejection", msisdn: "5557778899", dest: "5551112233", dur: 10, inter: "false", badge: "BLOCKED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Bakiyesi sıfır olan abone. VM-1 aramayı anında reddeder." },
-            { id: 4, title: "International Call Allowed", msisdn: "5551112233", dest: "4471234567", dur: 3, inter: "true", badge: "SUCCESS", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", desc: "Yurt dışı izni açık olan numara. Arama onaylanır." },
-            { id: 5, title: "International Call Barred", msisdn: "5554445566", dest: "12125550199", dur: 5, inter: "true", badge: "BARRED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Yurt dışı yetkisi kapalı numara. VM-1 engeller, VM-2 SMS fırlatır." },
-            { id: 6, title: "Double Crisis UX Rule", msisdn: "5557778899", dest: "12125550199", dur: 5, inter: "true", badge: "CRISIS BOTH", color: "bg-purple-500/10 text-purple-400 border-purple-500/20", desc: "Hem bakiyesi 0 hem de yurt dışı yasak! İki hatayı tek mesajda kurumsal birleştirir." }
+            { id: 1, title: "Standard Domestic Call", msisdn: "5551110001", dest: "5559876543", dur: 5, inter: "false", badge: "SUCCESS", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", desc: "Kayıtlı abone, bol bakiye (50dk). Sorunsuz geçiş sağlar." },
+            { id: 2, title: "Critical Balance Warning", msisdn: "5551110002", dest: "5556667788", dur: 10, inter: "false", badge: "SMS ALERT", color: "bg-amber-500/10 text-amber-400 border-amber-500/20", desc: "12 dk bakiyesi var, 10 dk konuşunca kalan 2 dk (<%20) için uyarı tetikler." },
+            { id: 3, title: "Zero Balance Rejection", msisdn: "5551110003", dest: "5552223344", dur: 5, inter: "false", badge: "BLOCKED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Bakiyesi 0 olan abone. VM-1 aramayı başlatmaz, reddeder." },
+            { id: 4, title: "International Call Allowed", msisdn: "5551110004", dest: "4471234567", dur: 5, inter: "true", badge: "SUCCESS", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", desc: "Yurt dışı izni açık ve bakiyesi olan numara. Başarıyla onaylanır." },
+            { id: 5, title: "International Call Barred", msisdn: "5551110005", dest: "12125550199", dur: 5, inter: "true", badge: "BARRED", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "Yurt dışı yetkisi kapalı numara. VM-1 engeller, VM-2 kısıtlama SMS'i atar." },
+            { id: 6, title: "Double Crisis UX Rule", msisdn: "5551110006", dest: "12125550199", dur: 5, inter: "true", badge: "CRISIS BOTH", color: "bg-purple-500/10 text-purple-400 border-purple-500/20", desc: "Hem bakiyesi 0 hem de yurt dışı yasak! İki hatayı tek mesajda kurumsal birleştirir." },
+            { id: 7, title: "Partial Allowance Demo", msisdn: "5551110007", dest: "5559876543", dur: 10, inter: "false", badge: "PARTIAL", color: "bg-blue-500/10 text-blue-400 border-blue-500/20", desc: "3 dk bakiyesi var ama 10 dk istiyor. Sistem 3 dk konuşturup kapatacak." },
+            { id: 8, title: "Package Depletion Test", msisdn: "5551110008", dest: "5554445566", dur: 15, inter: "false", badge: "DEPLETED", color: "bg-orange-500/10 text-orange-400 border-orange-500/20", desc: "15 dk bakiyeyi tam ucu ucuna bitirme senaryosu. Paket bitti mesajı tetikler." },
+            { id: 9, title: "Subscriber Not Found", msisdn: "5559999999", dest: "5551112233", dur: 5, inter: "false", badge: "NOT FOUND", color: "bg-slate-500/10 text-slate-400 border-slate-500/20", desc: "Sistemde kaydı olmayan numara denemesi. Doğrudan reddedilir." },
+            { id: 10, title: "High-Duration Rejection", msisdn: "5551110010", dest: "5557778899", dur: 500, inter: "false", badge: "OVER LIMIT", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", desc: "100 dk bakiyesi olan birinin tek seferde 500 dk istemesi. Koruma modu engeli." }
         ];
 
         const container = document.getElementById("scenariosContainer");
@@ -90,7 +94,7 @@
                 document.getElementById("destination").value = sc.dest;
                 document.getElementById("duration").value = sc.dur;
                 document.getElementById("isInternational").value = sc.inter;
-                document.getElementById("jsonOutput").innerText = `Scenario [${sc.title}] loaded. Ready!`;
+                document.getElementById("jsonOutput").innerText = `Scenario [${sc.title}] loaded into fields.`;
             };
             card.innerHTML = `<div class="flex justify-between items-start gap-2"><span class="text-sm font-bold text-slate-200">${sc.id}. ${sc.title}</span><span class="text-[10px] font-mono px-2 py-0.5 rounded border ${sc.color}">${sc.badge}</span></div><p class="text-xs text-slate-400 leading-relaxed">${sc.desc}</p>`;
             container.appendChild(card);
