@@ -1,67 +1,100 @@
 package com.i2i.telecom.service1;
 
-import com.i2i.telecom.model.CallEvent;
 import com.i2i.telecom.model.CustomerDB;
+import com.i2i.telecom.model.CustomerDB.Customer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@CrossOrigin(origins = "*")
 public class CallController {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-
-    public CallController(KafkaTemplate<String, Object> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
-    }
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     @GetMapping("/")
-    public Map<String, String> index() {
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "UP");
-        response.put("service", "Service 1 - Auth Server");
-        return response;
+    public Map<String, String> health() {
+        Map<String, String> status = new HashMap<>();
+        status.put("service", "Service 1 - Auth Server");
+        status.put("status", "UP");
+        return status;
+    }
+
+    @PostMapping("/reset-db")
+    public Map<String, String> resetDb() {
+        CustomerDB.db.values().forEach(c -> c.remainingMinutes = c.initialMinutes);
+        Map<String, String> res = new HashMap<>();
+        res.put("status", "SUCCESS");
+        res.put("message", "All balances reset successfully.");
+        return res;
     }
 
     @PostMapping("/authorize-call")
-    public Map<String, String> authorizeCall(@RequestParam String msisdn,
-                                             @RequestParam String destination,
-                                             @RequestParam(defaultValue = "false") boolean isInternational,
-                                             @RequestParam int duration) {
-        Map<String, String> response = new HashMap<>();
+    public Map<String, Object> authorizeCall(
+            @RequestParam String msisdn,
+            @RequestParam String destination,
+            @RequestParam int duration,
+            @RequestParam(defaultValue = "false") boolean isInternational) {
 
-        if (!CustomerDB.balances.containsKey(msisdn)) {
-            CallEvent event = new CallEvent(msisdn, destination, isInternational, duration, "FAILED", "SUBSCRIBER_NOT_FOUND");
-            kafkaTemplate.send("telecom-charging-logs", msisdn, event);
+        Map<String, Object> response = new HashMap<>();
+        Customer customer = CustomerDB.db.get(msisdn);
+
+        if (customer == null) {
             response.put("status", "FAILED");
             response.put("message", "Subscriber not found.");
             return response;
         }
 
-        int currentBalance = CustomerDB.balances.get(msisdn);
-        boolean isIntAllowed = CustomerDB.internationalAllowed.get(msisdn);
+        boolean balanceDeficit = customer.remainingMinutes <= 0;
+        boolean partialAvailable = customer.remainingMinutes > 0 && customer.remainingMinutes < duration;
+        boolean internationalBlocked = isInternational && !customer.isInternationalAllowed;
 
-        if (currentBalance <= 0) {
-            CallEvent event = new CallEvent(msisdn, destination, isInternational, duration, "FAILED", "INSUFFICIENT_BALANCE");
-            kafkaTemplate.send("telecom-charging-logs", msisdn, event);
+        // Kural A: Hem bakiye yetersiz/yok hem de yurt dışı kapalıysa (İkili Kriz UX)
+        if ((balanceDeficit || partialAvailable) && internationalBlocked) {
+            String kafkaPayload = String.format("{\"msisdn\":\"%s\",\"duration\":%d,\"status\":\"FAILED_BOTH\"}", msisdn, duration);
+            kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
             response.put("status", "FAILED");
-            response.put("message", "Insufficient balance. Call blocked.");
+            response.put("message", "Call blocked: Insufficient balance AND international calling is disabled for this subscriber.");
             return response;
         }
 
-        if (isInternational && !isIntAllowed) {
-            CallEvent event = new CallEvent(msisdn, destination, isInternational, duration, "FAILED", "INTERNATIONAL_BARRED");
-            kafkaTemplate.send("telecom-charging-logs", msisdn, event);
+        // Kural B: Sadece yurt dışı kapalıysa
+        if (internationalBlocked) {
+            String kafkaPayload = String.format("{\"msisdn\":\"%s\",\"duration\":%d,\"status\":\"FAILED_INTERNATIONAL\"}", msisdn, duration);
+            kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
             response.put("status", "FAILED");
-            response.put("message", "International calls are barred for this subscriber.");
+            response.put("message", "Call blocked: International calling is barred for this profile.");
             return response;
         }
 
-        CallEvent event = new CallEvent(msisdn, destination, isInternational, duration, "SUCCESS", "NONE");
-        kafkaTemplate.send("telecom-charging-logs", msisdn, event);
+        // Kural C: Tamamen bakiye sıfır ise
+        if (balanceDeficit) {
+            String kafkaPayload = String.format("{\"msisdn\":\"%s\",\"duration\":%d,\"status\":\"FAILED_REJECTED\"}", msisdn, duration);
+            kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
+            response.put("status", "FAILED");
+            response.put("message", "Call blocked: Insufficient balance. Current balance: 0 mins.");
+            return response;
+        }
+
+        // Kural D: Akıllı Kısmi Kullanım (1 dk varsa 5 dk arayınca 1 dk konuştur, sonra kapat)
+        int actualDuration = duration;
+        if (partialAvailable) {
+            actualDuration = customer.remainingMinutes;
+        }
+
+        customer.remainingMinutes -= actualDuration;
+
+        String kafkaPayload = String.format(
+            "{\"msisdn\":\"%s\",\"actualDuration\":%d,\"status\":\"SUCCESS\",\"initialMinutes\":%d,\"remainingMinutes\":%d}",
+            msisdn, actualDuration, customer.initialMinutes, customer.remainingMinutes
+        );
+        kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
+
         response.put("status", "SUCCESS");
-        response.put("message", "Call authorized successfully. Event streamed to Kafka.");
+        response.put("message", "Call authorized for " + actualDuration + " mins (Requested: " + duration + " mins). Remaining: " + customer.remainingMinutes + " mins.");
         return response;
     }
 }
