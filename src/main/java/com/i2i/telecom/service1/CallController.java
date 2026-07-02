@@ -52,7 +52,6 @@ public class CallController {
         boolean partialAvailable = customer.remainingMinutes > 0 && customer.remainingMinutes < duration;
         boolean internationalBlocked = isInternational && !customer.isInternationalAllowed;
 
-        // Kural A: Hem bakiye yetersiz/yok hem de yurt dışı kapalıysa (İkili Kriz UX)
         if ((balanceDeficit || partialAvailable) && internationalBlocked) {
             String kafkaPayload = String.format("{\"msisdn\":\"%s\",\"duration\":%d,\"status\":\"FAILED_BOTH\"}", msisdn, duration);
             kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
@@ -61,7 +60,6 @@ public class CallController {
             return response;
         }
 
-        // Kural B: Sadece yurt dışı kapalıysa
         if (internationalBlocked) {
             String kafkaPayload = String.format("{\"msisdn\":\"%s\",\"duration\":%d,\"status\":\"FAILED_INTERNATIONAL\"}", msisdn, duration);
             kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
@@ -70,7 +68,6 @@ public class CallController {
             return response;
         }
 
-        // Kural C: Tamamen bakiye sıfır ise
         if (balanceDeficit) {
             String kafkaPayload = String.format("{\"msisdn\":\"%s\",\"duration\":%d,\"status\":\"FAILED_REJECTED\"}", msisdn, duration);
             kafkaTemplate.send("telecom-charging-logs", kafkaPayload);
@@ -79,7 +76,6 @@ public class CallController {
             return response;
         }
 
-        // Kural D: Akıllı Kısmi Kullanım (1 dk varsa 5 dk arayınca 1 dk konuştur, sonra kapat)
         int actualDuration = duration;
         if (partialAvailable) {
             actualDuration = customer.remainingMinutes;
